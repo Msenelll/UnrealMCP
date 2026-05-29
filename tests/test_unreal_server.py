@@ -96,6 +96,47 @@ async def test_unreal_client_mocked_spawn():
     
     await client.close()
 
+@pytest.mark.asyncio
+async def test_unreal_client_get_viewport_telemetry():
+    """
+    Verifies that get_viewport_telemetry successfully fetches camera data
+    and selected actors when the Remote Control Web Server responds correctly.
+    """
+    client = UnrealClient()
+    
+    # Direct mock of _send_request to simulate active UE5 subsystems
+    async def mock_send_request(method, path, payload=None):
+        payload = payload or {}
+        func = payload.get("functionName", "")
+        if "GetSelectedLevelActors" in func:
+            return {
+                "success": True,
+                "data": {"returnValue": ["/Game/Maps/PersistentLevel.StaticMeshActor_1"]}
+            }
+        elif "GetActiveViewportCameraLocation" in func:
+            return {
+                "success": True,
+                "data": {"returnValue": {"X": 500.0, "Y": -200.0, "Z": 150.0}}
+            }
+        elif "GetActiveViewportCameraRotation" in func:
+            return {
+                "success": True,
+                "data": {"returnValue": {"Pitch": -10.0, "Yaw": 45.0, "Roll": 0.0}}
+            }
+        return {"success": False}
+        
+    client._send_request = mock_send_request
+    
+    res = await client.get_viewport_telemetry()
+    
+    assert res["success"] is True
+    assert res["camera"]["location"]["x"] == 500.0
+    assert res["camera"]["rotation"]["pitch"] == -10.0
+    assert len(res["selected_actors"]) == 1
+    assert res["selected_actors"][0]["name"] == "StaticMeshActor_1"
+    
+    await client.close()
+
 # ==========================================
 # 3. SubprocessManager Unit Tests
 # ==========================================

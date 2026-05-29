@@ -84,32 +84,64 @@ class UnrealClient:
         Fetches active viewport telemetry including active camera position and selected actor list.
         [REQ_SRD_UE5_01]
         """
-        # Call active Level Editor camera and selections using EditorActorSubsystem
-        payload = {
+        # Call active selections using EditorActorSubsystem
+        payload_sel = {
             "objectPath": "/Script/EditorSubsystem.Default__EditorActorSubsystem",
             "functionName": "GetSelectedLevelActors",
             "parameters": {}
         }
         
-        res = await self._send_request("PUT", "/api/v1/call", payload)
-        if not res.get("success"):
-            return res
+        res_sel = await self._send_request("PUT", "/api/v1/call", payload_sel)
+        if not res_sel.get("success") and res_sel.get("error") == "EDITOR_OFFLINE":
+            return res_sel
 
-        actors_data = res.get("data", {}).get("returnValue", [])
         selected_actors = []
-        for actor_path in actors_data:
-            # For each actor path, retrieve basic properties
-            selected_actors.append({
-                "actor_path": actor_path,
-                "name": actor_path.split(".")[-1]
-            })
+        if res_sel.get("success"):
+            actors_data = res_sel.get("data", {}).get("returnValue", [])
+            for actor_path in actors_data:
+                selected_actors.append({
+                    "actor_path": actor_path,
+                    "name": actor_path.split(".")[-1]
+                })
             
-        # Get active viewport camera details (Mocked default/placeholder if direct camera retrieval fails)
+        # Get active viewport camera details dynamically from UUnrealEditorSubsystem
         camera_data = {
             "location": {"x": 0.0, "y": 0.0, "z": 100.0},
             "rotation": {"pitch": 0.0, "yaw": 0.0, "roll": 0.0},
             "fov": 90.0
         }
+        
+        # Get camera location
+        payload_loc = {
+            "objectPath": "/Script/UnrealEd.Default__UnrealEditorSubsystem",
+            "functionName": "GetActiveViewportCameraLocation",
+            "parameters": {}
+        }
+        res_loc = await self._send_request("PUT", "/api/v1/call", payload_loc)
+        
+        # Get camera rotation
+        payload_rot = {
+            "objectPath": "/Script/UnrealEd.Default__UnrealEditorSubsystem",
+            "functionName": "GetActiveViewportCameraRotation",
+            "parameters": {}
+        }
+        res_rot = await self._send_request("PUT", "/api/v1/call", payload_rot)
+        
+        if res_loc.get("success") and "returnValue" in res_loc.get("data", {}):
+            loc_val = res_loc["data"]["returnValue"]
+            camera_data["location"] = {
+                "x": float(loc_val.get("X", 0.0)),
+                "y": float(loc_val.get("Y", 0.0)),
+                "z": float(loc_val.get("Z", 0.0))
+            }
+            
+        if res_rot.get("success") and "returnValue" in res_rot.get("data", {}):
+            rot_val = res_rot["data"]["returnValue"]
+            camera_data["rotation"] = {
+                "pitch": float(rot_val.get("Pitch", 0.0)),
+                "yaw": float(rot_val.get("Yaw", 0.0)),
+                "roll": float(rot_val.get("Roll", 0.0))
+            }
         
         return {
             "success": True,
