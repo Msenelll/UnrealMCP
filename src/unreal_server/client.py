@@ -98,7 +98,8 @@ class UnrealClient:
 
         selected_actors = []
         if res_sel.get("success"):
-            actors_data = res_sel.get("data", {}).get("returnValue", [])
+            data_dict = res_sel.get("data", {})
+            actors_data = data_dict.get("returnValue") or data_dict.get("ReturnValue") or []
             for actor_path in actors_data:
                 selected_actors.append({
                     "actor_path": actor_path,
@@ -154,7 +155,8 @@ class UnrealClient:
         }
         res = await self._send_request("PUT", "/remote/object/call", payload)
         if res.get("success"):
-            actors = res.get("data", {}).get("returnValue", [])
+            data_dict = res.get("data", {})
+            actors = data_dict.get("returnValue") or data_dict.get("ReturnValue") or []
             for actor_path in actors:
                 if "UEDPIE_" in actor_path:
                     return True
@@ -190,7 +192,8 @@ class UnrealClient:
         if not res.get("success"):
             return res
             
-        actor_path = res.get("data", {}).get("returnValue", "")
+        data_dict = res.get("data", {})
+        actor_path = data_dict.get("returnValue") or data_dict.get("ReturnValue") or ""
         return {
             "success": True,
             "actor_path": actor_path,
