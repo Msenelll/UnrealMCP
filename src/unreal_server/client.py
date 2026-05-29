@@ -87,12 +87,12 @@ class UnrealClient:
         """
         # Call active selections using EditorActorSubsystem
         payload_sel = {
-            "objectPath": "/Script/EditorSubsystem.Default__EditorActorSubsystem",
+            "objectPath": "/Script/UnrealEd.Default__EditorActorSubsystem",
             "functionName": "GetSelectedLevelActors",
             "parameters": {}
         }
         
-        res_sel = await self._send_request("PUT", "/api/v1/call", payload_sel)
+        res_sel = await self._send_request("PUT", "/remote/object/call", payload_sel)
         if not res_sel.get("success") and res_sel.get("error") == "EDITOR_OFFLINE":
             return res_sel
 
@@ -112,32 +112,24 @@ class UnrealClient:
             "fov": 90.0
         }
         
-        # Get camera location
-        payload_loc = {
+        # Get camera location & rotation in a single call using GetLevelViewportCameraInfo
+        payload_cam = {
             "objectPath": "/Script/UnrealEd.Default__UnrealEditorSubsystem",
-            "functionName": "GetActiveViewportCameraLocation",
+            "functionName": "GetLevelViewportCameraInfo",
             "parameters": {}
         }
-        res_loc = await self._send_request("PUT", "/api/v1/call", payload_loc)
+        res_cam = await self._send_request("PUT", "/remote/object/call", payload_cam)
         
-        # Get camera rotation
-        payload_rot = {
-            "objectPath": "/Script/UnrealEd.Default__UnrealEditorSubsystem",
-            "functionName": "GetActiveViewportCameraRotation",
-            "parameters": {}
-        }
-        res_rot = await self._send_request("PUT", "/api/v1/call", payload_rot)
-        
-        if res_loc.get("success") and "returnValue" in res_loc.get("data", {}):
-            loc_val = res_loc["data"]["returnValue"]
+        if res_cam.get("success") and "CameraLocation" in res_cam.get("data", {}):
+            cam_data = res_cam["data"]
+            loc_val = cam_data["CameraLocation"]
+            rot_val = cam_data["CameraRotation"]
+            
             camera_data["location"] = {
                 "x": float(loc_val.get("X", 0.0)),
                 "y": float(loc_val.get("Y", 0.0)),
                 "z": float(loc_val.get("Z", 0.0))
             }
-            
-        if res_rot.get("success") and "returnValue" in res_rot.get("data", {}):
-            rot_val = res_rot["data"]["returnValue"]
             camera_data["rotation"] = {
                 "pitch": float(rot_val.get("Pitch", 0.0)),
                 "yaw": float(rot_val.get("Yaw", 0.0)),
@@ -156,11 +148,11 @@ class UnrealClient:
         If a game world is active, actor paths returned contain the UEDPIE_ prefix.
         """
         payload = {
-            "objectPath": "/Script/EditorSubsystem.Default__EditorActorSubsystem",
+            "objectPath": "/Script/UnrealEd.Default__EditorActorSubsystem",
             "functionName": "GetSelectedLevelActors",
             "parameters": {}
         }
-        res = await self._send_request("PUT", "/api/v1/call", payload)
+        res = await self._send_request("PUT", "/remote/object/call", payload)
         if res.get("success"):
             actors = res.get("data", {}).get("returnValue", [])
             for actor_path in actors:
@@ -177,7 +169,7 @@ class UnrealClient:
         
         # Build spawn request to EditorActorSubsystem
         payload = {
-            "objectPath": "/Script/EditorSubsystem.Default__EditorActorSubsystem",
+            "objectPath": "/Script/UnrealEd.Default__EditorActorSubsystem",
             "functionName": "SpawnActorFromClass",
             "parameters": {
                 "ActorClass": actor_class,
@@ -194,7 +186,7 @@ class UnrealClient:
             }
         }
         
-        res = await self._send_request("PUT", "/api/v1/call", payload)
+        res = await self._send_request("PUT", "/remote/object/call", payload)
         if not res.get("success"):
             return res
             
@@ -220,7 +212,7 @@ class UnrealClient:
             }
         }
         
-        res = await self._send_request("PUT", "/api/v1/call", payload)
+        res = await self._send_request("PUT", "/remote/object/call", payload)
         if not res.get("success"):
             # Fallback mock success response for offline/testing scenarios
             logger.warning("Unreal Editor offline or AssetTools call failed. Returning simulated import success...")
@@ -246,7 +238,7 @@ class UnrealClient:
         
         if location:
             payload = {
-                "objectPath": "/Script/EditorSubsystem.Default__EditorActorSubsystem",
+                "objectPath": "/Script/UnrealEd.Default__EditorActorSubsystem",
                 "functionName": "SetActorLocation",
                 "parameters": {
                     "Actor": actor_path,
@@ -257,11 +249,11 @@ class UnrealClient:
                     }
                 }
             }
-            results["location"] = await self._send_request("PUT", "/api/v1/call", payload)
+            results["location"] = await self._send_request("PUT", "/remote/object/call", payload)
             
         if rotation:
             payload = {
-                "objectPath": "/Script/EditorSubsystem.Default__EditorActorSubsystem",
+                "objectPath": "/Script/UnrealEd.Default__EditorActorSubsystem",
                 "functionName": "SetActorRotation",
                 "parameters": {
                     "Actor": actor_path,
@@ -272,7 +264,7 @@ class UnrealClient:
                     }
                 }
             }
-            results["rotation"] = await self._send_request("PUT", "/api/v1/call", payload)
+            results["rotation"] = await self._send_request("PUT", "/remote/object/call", payload)
 
         return {
             "success": True,

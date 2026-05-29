@@ -113,15 +113,13 @@ async def test_unreal_client_get_viewport_telemetry():
                 "success": True,
                 "data": {"returnValue": ["/Game/Maps/PersistentLevel.StaticMeshActor_1"]}
             }
-        elif "GetActiveViewportCameraLocation" in func:
+        elif "GetLevelViewportCameraInfo" in func:
             return {
                 "success": True,
-                "data": {"returnValue": {"X": 500.0, "Y": -200.0, "Z": 150.0}}
-            }
-        elif "GetActiveViewportCameraRotation" in func:
-            return {
-                "success": True,
-                "data": {"returnValue": {"Pitch": -10.0, "Yaw": 45.0, "Roll": 0.0}}
+                "data": {
+                    "CameraLocation": {"X": 500.0, "Y": -200.0, "Z": 150.0},
+                    "CameraRotation": {"Pitch": -10.0, "Yaw": 45.0, "Roll": 0.0}
+                }
             }
         return {"success": False}
         
