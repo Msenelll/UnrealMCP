@@ -161,6 +161,15 @@ async def handle_call_tool(name: str, arguments: dict | None) -> list[types.Text
             if not telemetry.get("success") and telemetry.get("error") != "EDITOR_OFFLINE":
                 return [types.TextContent(type="text", text=f"Pre-condition Check Failed: {telemetry}")]
                 
+            # If editor is online, check if game/PIE simulation is running
+            if telemetry.get("success"):
+                pie_active = await unreal_client.is_pie_active()
+                if pie_active:
+                    return [types.TextContent(
+                        type="text",
+                        text="Error: Live Coding cannot be triggered because the editor is currently in PIE (Play In Editor) mode. Please stop the game simulation and try again."
+                    )]
+                
             logs = []
             def log_collector(line: str):
                 logs.append(line)

@@ -149,6 +149,24 @@ class UnrealClient:
             "selected_actors": selected_actors
         }
 
+    async def is_pie_active(self) -> bool:
+        """
+        Checks if the Unreal Editor is currently in PIE (Play In Editor) mode.
+        If a game world is active, actor paths returned contain the UEDPIE_ prefix.
+        """
+        payload = {
+            "objectPath": "/Script/EditorSubsystem.Default__EditorActorSubsystem",
+            "functionName": "GetSelectedLevelActors",
+            "parameters": {}
+        }
+        res = await self._send_request("PUT", "/api/v1/call", payload)
+        if res.get("success"):
+            actors = res.get("data", {}).get("returnValue", [])
+            for actor_path in actors:
+                if "UEDPIE_" in actor_path:
+                    return True
+        return False
+
     async def spawn_actor(self, actor_class: str, location: Dict[str, float], rotation: Optional[Dict[str, float]] = None) -> Dict[str, Any]:
         """
         Spawns an actor in the Unreal Engine level using EditorActorSubsystem.

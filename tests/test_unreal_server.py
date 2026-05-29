@@ -137,6 +137,42 @@ async def test_unreal_client_get_viewport_telemetry():
     
     await client.close()
 
+@pytest.mark.asyncio
+async def test_unreal_client_is_pie_active_true():
+    """
+    Verifies that is_pie_active returns True when UEDPIE_ prefix is in actor path.
+    """
+    client = UnrealClient()
+    
+    async def mock_send_request(method, path, payload=None):
+        return {
+            "success": True,
+            "data": {"returnValue": ["/Game/Maps/UEDPIE_0_MainLevel.MainLevel:PersistentLevel.StaticMeshActor_1"]}
+        }
+    client._send_request = mock_send_request
+    
+    pie_active = await client.is_pie_active()
+    assert pie_active is True
+    await client.close()
+
+@pytest.mark.asyncio
+async def test_unreal_client_is_pie_active_false():
+    """
+    Verifies that is_pie_active returns False when UEDPIE_ prefix is absent.
+    """
+    client = UnrealClient()
+    
+    async def mock_send_request(method, path, payload=None):
+        return {
+            "success": True,
+            "data": {"returnValue": ["/Game/Maps/PersistentLevel.StaticMeshActor_1"]}
+        }
+    client._send_request = mock_send_request
+    
+    pie_active = await client.is_pie_active()
+    assert pie_active is False
+    await client.close()
+
 # ==========================================
 # 3. SubprocessManager Unit Tests
 # ==========================================
