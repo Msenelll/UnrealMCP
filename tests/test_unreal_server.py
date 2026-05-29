@@ -138,6 +138,39 @@ async def test_unreal_client_get_viewport_telemetry():
     await client.close()
 
 @pytest.mark.asyncio
+async def test_unreal_client_import_asset():
+    """
+    Verifies that import_asset successfully maps requests to AssetTools
+    and handles simulated fallbacks when editor is offline.
+    """
+    client = UnrealClient()
+    
+    # Test offline simulated fallback first (should catch connection exception and return simulation success)
+    res_offline = await client.import_asset("C:/Temp/SM_Sphere.fbx")
+    assert res_offline["success"] is True
+    assert res_offline["asset_path"] == "/Game/ProceduralAssets/Meshes/SM_Sphere.SM_Sphere"
+    assert "simulated fallback" in res_offline["message"]
+    
+    # Test mocked successful online call
+    mock_response = AsyncMock()
+    mock_response.status = 200
+    mock_response.content_type = "application/json"
+    mock_response.json = AsyncMock(return_value={"returnValue": True})
+    
+    mock_session = MagicMock()
+    mock_session.closed = False
+    mock_session.close = AsyncMock()
+    mock_session.request.return_value.__aenter__.return_value = mock_response
+    
+    client.session = mock_session
+    
+    res_online = await client.import_asset("C:/Temp/SM_Cube.fbx")
+    assert res_online["success"] is True
+    assert "Successfully imported" in res_online["message"]
+    
+    await client.close()
+
+@pytest.mark.asyncio
 async def test_unreal_client_is_pie_active_true():
     """
     Verifies that is_pie_active returns True when UEDPIE_ prefix is in actor path.

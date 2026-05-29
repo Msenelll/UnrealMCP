@@ -124,6 +124,24 @@ async def handle_list_tools() -> list[types.Tool]:
                 },
                 "required": ["project_path"]
             }
+        ),
+        types.Tool(
+            name="unreal_import_asset",
+            description="Imports an FBX mesh file into the Unreal Engine Content Browser [REQ_SRD_INT_01] [REQ_PID_AST_04].",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "filepath": {
+                        "type": "string",
+                        "description": "Absolute Windows path to the FBX file"
+                    },
+                    "destination_path": {
+                        "type": "string",
+                        "description": "Target Content Browser folder (default: /Game/ProceduralAssets/Meshes)"
+                    }
+                },
+                "required": ["filepath"]
+            }
         )
     ]
 
@@ -194,6 +212,15 @@ async def handle_call_tool(name: str, arguments: dict | None) -> list[types.Text
                 type="text",
                 text=f"Packaging Completed. Exit Code: {exit_code}\nExecution Output:\n" + "\n".join(logs)
             )]
+            
+        elif name == "unreal_import_asset":
+            filepath = args.get("filepath")
+            destination_path = args.get("destination_path", "/Game/ProceduralAssets/Meshes")
+            if not filepath:
+                return [types.TextContent(type="text", text="Error: Missing filepath argument.")]
+                
+            res = await unreal_client.import_asset(filepath, destination_path)
+            return [types.TextContent(type="text", text=str(res))]
             
         else:
             return [types.TextContent(type="text", text=f"Error: Unknown tool '{name}'")]
