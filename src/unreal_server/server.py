@@ -1,0 +1,214 @@
+# -*- coding: utf-8 -*-
+"""
+Ludus Magnus - Dual MCP Server Suite
+[REQ_TDD_ARC_01] Unreal Engine 5 MCP Server Entry Point
+Initializes stdio server transport, registers tools, and routes calls asynchronously
+"""
+
+import asyncio
+import sys
+import logging
+from mcp.server import Server
+from mcp.server.stdio import stdio_server
+import mcp.types as types
+from src.unreal_server.client import UnrealClient
+from src.unreal_server.execution import SubprocessManager
+
+# Configure strict enterprise logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    stream=sys.stderr  # Direct logging to stderr so it does not interfere with stdout stdio channel
+)
+logger = logging.getLogger("UnrealMCPServer")
+
+# Initialize Server instance
+server = Server("unreal-mcp-server")
+
+# Instantiate async modules
+unreal_client = UnrealClient()
+proc_manager = SubprocessManager()
+
+@server.list_tools()
+async def handle_list_tools() -> list[types.Tool]:
+    """
+    Registers the 5 core tools for otonom actor manipulation, viewport telemetry,
+    and Dual-Layer Compilation triggers.
+    """
+    return [
+        types.Tool(
+            name="unreal_get_viewport_telemetry",
+            description="Fetches active Unreal Engine viewport telemetry details (camera location, rotation, fov, and selected actors list) [REQ_SRD_UE5_01].",
+            inputSchema={"type": "object", "properties": {}}
+        ),
+        types.Tool(
+            name="unreal_spawn_actor",
+            description="Spawns an actor in Unreal Engine [REQ_SRD_UE5_02]. Supported classes: /Script/Engine.StaticMeshActor, /Script/Engine.PointLight, /Script/Engine.DirectionalLight, /Script/Engine.CameraActor.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "actor_class": {
+                        "type": "string",
+                        "description": "Unreal Engine Actor Class path (e.g. /Script/Engine.PointLight)"
+                    },
+                    "location": {
+                        "type": "object",
+                        "properties": {
+                            "x": {"type": "number", "description": "World X position in centimeters"},
+                            "y": {"type": "number", "description": "World Y position in centimeters"},
+                            "z": {"type": "number", "description": "World Z position in centimeters"}
+                        },
+                        "required": ["x", "y", "z"],
+                        "description": "Location map containing absolute target coordinates"
+                    },
+                    "rotation": {
+                        "type": "object",
+                        "properties": {
+                            "pitch": {"type": "number", "description": "Rotation pitch angle"},
+                            "yaw": {"type": "number", "description": "Rotation yaw angle"},
+                            "roll": {"type": "number", "description": "Rotation roll angle"}
+                        },
+                        "description": "Optional rotation map"
+                    }
+                },
+                "required": ["actor_class", "location"]
+            }
+        ),
+        types.Tool(
+            name="unreal_set_actor_transform",
+            description="Sets or modifies the transform (location, rotation) of an actor [REQ_SRD_UE5_03].",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "actor_path": {
+                        "type": "string",
+                        "description": "Full object path of the target actor (e.g. PersistentLevel.StaticMeshActor_1)"
+                    },
+                    "location": {
+                        "type": "object",
+                        "properties": {
+                            "x": {"type": "number"},
+                            "y": {"type": "number"},
+                            "z": {"type": "number"}
+                        },
+                        "description": "Target coordinate location map"
+                    },
+                    "rotation": {
+                        "type": "object",
+                        "properties": {
+                            "pitch": {"type": "number"},
+                            "yaw": {"type": "number"},
+                            "roll": {"type": "number"}
+                        },
+                        "description": "Target rotation map"
+                    }
+                },
+                "required": ["actor_path"]
+            }
+        ),
+        types.Tool(
+            name="unreal_live_coding_trigger",
+            description="Triggers Live Coding recompile in Unreal Engine [REQ_SRD_UE5_04]. Pre-condition: Editor must be in idle and PIE must be inactive.",
+            inputSchema={"type": "object", "properties": {}}
+        ),
+        types.Tool(
+            name="unreal_package_project",
+            description="Runs RunUAT to build, cook, and package the Unreal project asynchronously [REQ_SRD_UE5_05].",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "project_path": {
+                        "type": "string",
+                        "description": "Absolute Windows path to the .uproject file"
+                    }
+                },
+                "required": ["project_path"]
+            }
+        )
+    ]
+
+@server.call_tool()
+async def handle_call_tool(name: str, arguments: dict | None) -> list[types.TextContent]:
+    """
+    Asynchronously handles and routes tool calls to client wrappers or subprocess managers.
+    Ensures proper JSON serialization and robust, non-crashing exception handling.
+    """
+    args = arguments or {}
+    logger.info(f"Executing tool {name} with arguments: {args}")
+    
+    try:
+        if name == "unreal_get_viewport_telemetry":
+            res = await unreal_client.get_viewport_telemetry()
+            return [types.TextContent(type="text", text=str(res))]
+            
+        elif name == "unreal_spawn_actor":
+            actor_class = args.get("actor_class")
+            location = args.get("location")
+            rotation = args.get("rotation")
+            res = await unreal_client.spawn_actor(actor_class, location, rotation)
+            return [types.TextContent(type="text", text=str(res))]
+            
+        elif name == "unreal_set_actor_transform":
+            actor_path = args.get("actor_path")
+            location = args.get("location")
+            rotation = args.get("rotation")
+            res = await unreal_client.set_actor_transform(actor_path, location, rotation)
+            return [types.TextContent(type="text", text=str(res))]
+            
+        elif name == "unreal_live_coding_trigger":
+            # Safety gate check: query editor status first
+            telemetry = await unreal_client.get_viewport_telemetry()
+            if not telemetry.get("success") and telemetry.get("error") != "EDITOR_OFFLINE":
+                return [types.TextContent(type="text", text=f"Pre-condition Check Failed: {telemetry}")]
+                
+            logs = []
+            def log_collector(line: str):
+                logs.append(line)
+                
+            exit_code = await proc_manager.trigger_live_coding(log_collector)
+            return [types.TextContent(
+                type="text",
+                text=f"Live Coding Completed. Exit Code: {exit_code}\nExecution Output:\n" + "\n".join(logs)
+            )]
+            
+        elif name == "unreal_package_project":
+            project_path = args.get("project_path")
+            if not project_path:
+                return [types.TextContent(type="text", text="Error: Missing project_path argument.")]
+                
+            logs = []
+            def log_collector(line: str):
+                logs.append(line)
+                
+            exit_code = await proc_manager.trigger_run_uat(project_path, log_collector)
+            return [types.TextContent(
+                type="text",
+                text=f"Packaging Completed. Exit Code: {exit_code}\nExecution Output:\n" + "\n".join(logs)
+            )]
+            
+        else:
+            return [types.TextContent(type="text", text=f"Error: Unknown tool '{name}'")]
+            
+    except Exception as e:
+        logger.error(f"Error handling tool call '{name}': {e}")
+        return [types.TextContent(type="text", text=f"Error: An unexpected exception occurred: {e}")]
+
+async def main():
+    """
+    Main entry point initializing asynchronous stdio server transport.
+    """
+    try:
+        async with stdio_server() as (read_stream, write_stream):
+            logger.info("Unreal Engine MCP Server successfully running on stdio transport...")
+            await server.run(
+                read_stream,
+                write_stream,
+                server.create_initialization_options()
+            )
+    except Exception as e:
+        logger.critical(f"Server crash encountered: {e}")
+    finally:
+        await unreal_client.close()
+
+if __name__ == "__main__":
+    asyncio.run(main())
