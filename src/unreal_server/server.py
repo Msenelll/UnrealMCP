@@ -184,6 +184,16 @@ async def handle_list_tools() -> list[types.Tool]:
                 },
                 "required": ["actor_path"]
             }
+        ),
+        types.Tool(
+            name="unreal_editor_undo",
+            description="Triggers the last editor transaction to be undone (Undo / Ctrl+Z) in the Unreal Editor [REQ_SRD_UE5_09].",
+            inputSchema={"type": "object", "properties": {}}
+        ),
+        types.Tool(
+            name="unreal_editor_redo",
+            description="Triggers the last undone editor transaction to be redone (Redo / Ctrl+Y) in the Unreal Editor [REQ_SRD_UE5_09].",
+            inputSchema={"type": "object", "properties": {}}
         )
     ]
 
@@ -283,6 +293,14 @@ async def handle_call_tool(name: str, arguments: dict | None) -> list[types.Text
                 return [types.TextContent(type="text", text="Error: Missing actor_path argument.")]
                 
             res = await unreal_client.get_actor_components(actor_path)
+            return [types.TextContent(type="text", text=str(res))]
+            
+        elif name == "unreal_editor_undo":
+            res = await unreal_client.undo()
+            return [types.TextContent(type="text", text=str(res))]
+            
+        elif name == "unreal_editor_redo":
+            res = await unreal_client.redo()
             return [types.TextContent(type="text", text=str(res))]
             
         else:
