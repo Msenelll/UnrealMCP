@@ -165,8 +165,35 @@ class UnrealClient:
     async def spawn_actor(self, actor_class: str, location: Dict[str, float], rotation: Optional[Dict[str, float]] = None) -> Dict[str, Any]:
         """
         Spawns an actor in the Unreal Engine level using EditorActorSubsystem.
-        [REQ_SRD_UE5_02]
+        Supports both built-in C++ classes and custom project Blueprints.
+        [REQ_SRD_UE5_02] / [REQ_SRD_UE5_08]
         """
+        if not actor_class or not isinstance(actor_class, str):
+            return {
+                "success": False,
+                "error": "INVALID_CLASS_PATH",
+                "message": "Actor class path must be a non-empty string."
+            }
+
+        cleaned_class = actor_class.strip()
+        
+        # Enforce strict path structure validation
+        if not (cleaned_class.startswith("/Script/") or cleaned_class.startswith("/Game/")):
+            return {
+                "success": False,
+                "error": "INVALID_CLASS_PATH",
+                "message": f"Invalid actor class path '{actor_class}'. Paths must start with either '/Script/' (C++ class) or '/Game/' (Blueprint class)."
+            }
+
+        # Auto-formatting and reflection expansion for custom Blueprints (/Game/ paths)
+        if cleaned_class.startswith("/Game/"):
+            # Ensure it ends with _C representing the compiled class (e.g. /Game/Blueprints/BP_Actor.BP_Actor_C)
+            if "." not in cleaned_class:
+                asset_name = cleaned_class.split("/")[-1]
+                cleaned_class = f"{cleaned_class}.{asset_name}_C"
+            elif not cleaned_class.endswith("_C"):
+                cleaned_class = f"{cleaned_class}_C"
+
         rot = rotation or {"pitch": 0.0, "yaw": 0.0, "roll": 0.0}
         
         # Build spawn request to EditorActorSubsystem
@@ -174,7 +201,7 @@ class UnrealClient:
             "objectPath": "/Script/UnrealEd.Default__EditorActorSubsystem",
             "functionName": "SpawnActorFromClass",
             "parameters": {
-                "ActorClass": actor_class,
+                "ActorClass": cleaned_class,
                 "Location": {
                     "X": float(location.get("x", 0.0)),
                     "Y": float(location.get("y", 0.0)),
@@ -190,6 +217,13 @@ class UnrealClient:
         
         res = await self._send_request("PUT", "/remote/object/call", payload)
         if not res.get("success"):
+            # If the remote call returned an error (e.g. asset not found / class not loaded)
+            if res.get("error") == "HTTP_500":
+                return {
+                    "success": False,
+                    "error": "ASSET_NOT_FOUND",
+                    "message": f"Unreal Engine failed to spawn class '{cleaned_class}'. Please verify that the Blueprint asset path exists and is compiled."
+                }
             return res
             
         data_dict = res.get("data", {})
@@ -197,8 +231,9 @@ class UnrealClient:
         return {
             "success": True,
             "actor_path": actor_path,
-            "message": f"Successfully spawned actor of class {actor_class}."
+            "message": f"Successfully spawned actor of class {cleaned_class}."
         }
+
 
     async def import_asset(self, filepath: str, destination_path: str = "/Game/ProceduralAssets/Meshes") -> Dict[str, Any]:
         """
