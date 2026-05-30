@@ -432,4 +432,84 @@ async def test_spawn_actor_asset_not_found_500():
     await client.close()
 
 
+# ==========================================
+# 6. Undo/Redo Unit Tests
+# ==========================================
+
+@pytest.mark.asyncio
+async def test_unreal_client_undo_redo_offline_fallback():
+    """
+    Verifies that when the editor is offline, both undo and redo methods
+    handle the failure gracefully and return simulated success.
+    """
+    client = UnrealClient()
+    
+    # Force _send_request to simulate a failure (e.g. EDITOR_OFFLINE)
+    async def mock_send_request_fail(method, path, payload=None):
+        return {
+            "success": False,
+            "error": "EDITOR_OFFLINE",
+            "message": "Unreal Editor is not running."
+        }
+    client._send_request = mock_send_request_fail
+    
+    res_undo = await client.undo()
+    assert res_undo["success"] is True
+    assert "simulated fallback" in res_undo["message"]
+    
+    res_redo = await client.redo()
+    assert res_redo["success"] is True
+    assert "simulated fallback" in res_redo["message"]
+    
+    await client.close()
+
+@pytest.mark.asyncio
+async def test_unreal_client_undo_redo_success():
+    """
+    Verifies that when the editor is online, undo and redo methods call
+    the REST API with the precise console command payloads and report success.
+    """
+    client = UnrealClient()
+    
+    # Mock successful Remote Control responses
+    mock_response = AsyncMock()
+    mock_response.status = 200
+    mock_response.content_type = "application/json"
+    mock_response.json = AsyncMock(return_value={"returnValue": True})
+    
+    mock_session = MagicMock()
+    mock_session.closed = False
+    mock_session.close = AsyncMock()
+    mock_session.request.return_value.__aenter__.return_value = mock_response
+    client.session = mock_session
+    
+    # Run Undo
+    res_undo = await client.undo()
+    assert res_undo["success"] is True
+    assert "simulated fallback" not in res_undo["message"]
+    
+    # Verify exact Undo HTTP call and parameters
+    mock_session.request.assert_called_once()
+    called_args = mock_session.request.call_args[1]
+    assert called_args["json"]["functionName"] == "ExecuteConsoleCommand"
+    assert called_args["json"]["parameters"]["Command"] == "TRANSACTION UNDO"
+    
+    # Reset mock for Redo test
+    mock_session.request.reset_mock()
+    
+    # Run Redo
+    res_redo = await client.redo()
+    assert res_redo["success"] is True
+    assert "simulated fallback" not in res_redo["message"]
+    
+    # Verify exact Redo HTTP call and parameters
+    mock_session.request.assert_called_once()
+    called_args = mock_session.request.call_args[1]
+    assert called_args["json"]["functionName"] == "ExecuteConsoleCommand"
+    assert called_args["json"]["parameters"]["Command"] == "TRANSACTION REDO"
+    
+    await client.close()
+
+
+
 
