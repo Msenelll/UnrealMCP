@@ -2,7 +2,7 @@
 
 **Proje Kodu:** LUDUS_MCP_2026  
 **Doküman Kodu:** TDD_MASTER_01  
-**Versiyon:** v0.1:0  
+**Versiyon:** v0.2:0  
 **Doküman Sahibi:** @core-arch (Technical Director / Lead Architect)  
 **Sistem Durumu:** İNCELEMEDE / GATED STEP 3  
 
@@ -181,6 +181,10 @@ class CoordinateConverter:
 | **[REQ_TDD_ARC_05]** | Headless Blender çalıştırıcı sınıfının parametre doğrulaması (parameter validation) ve Python script şablon enjektörünün tasarımı. | `[REQ_SRD_BLN_01]` | `[REQ_VD_TEC_02]` |
 | **[REQ_TDD_ARC_06]** | Blender-UE5 eksen ve ölçek dönüşümlerini yapacak `CoordinateConverter` modülünün yazılması. | `[REQ_SRD_BLN_03]` | `[REQ_VD_ART_01]` |
 | **[REQ_TDD_ARC_07]** | Sistem genelinde döngüsel polling kullanımını tamamen engelleyen, sadece event tabanlı çalışan asenkron mimari kuralının uygulanması. | `[REQ_SRD_UE5_01]` | `[REQ_VD_TEC_02]` |
+| **[REQ_TDD_ARC_08]** | Dinamik Python Script Çalıştırma Köprüsü için soket tabanlı Python Remote Execution TCP port haberleşme entegrasyonu. | `[REQ_SRD_UE5_06]` | `[REQ_VD_TEC_02]` |
+| **[REQ_TDD_ARC_09]** | `EditorActorSubsystem.get_all_level_actors()` ve bileşen özelliklerini sorgulayan hiyerarşik sorgu kütüphanesi. | `[REQ_SRD_UE5_07]` | `[REQ_VD_TEC_01]` |
+| **[REQ_TDD_ARC_10]** | Blueprint class yollarının dinamik yansıma (reflection) ile çözümlenmesi ve spawn edilmesi modülü. | `[REQ_SRD_UE5_08]` | `[REQ_VD_SCP_01]` |
+| **[REQ_TDD_ARC_11]** | Unreal `EditorUndo` transaction tetikleyici API uçlarının entegrasyonu. | `[REQ_SRD_UE5_09]` | `[REQ_VD_TEC_01]` |
 
 ---
 

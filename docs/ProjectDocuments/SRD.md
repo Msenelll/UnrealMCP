@@ -2,7 +2,7 @@
 
 **Proje Kodu:** LUDUS_MCP_2026  
 **Doküman Kodu:** SRD_MASTER_01  
-**Versiyon:** v0.1:0  
+**Versiyon:** v0.2:0  
 **Doküman Sahibi:** @sys-prime (Lead Game Designer / Product Owner)  
 **Sistem Durumu:** İNCELEMEDE / GATED STEP 2  
 
@@ -30,6 +30,10 @@ Tüm işlevsel gereksinimler L0 Vision Document (`docs/ProjectDocuments/VD.md`) 
 | **[REQ_SRD_BLN_03]** | Headless FBX Dışa Aktarım Köprüsü | `[REQ_VD_ART_01]` | Blender üzerinde üretilen mesh ve materyaller, Z-up ve -X forward eksen dönüşümleri otomatik yapılarak geçici bir klasöre `.fbx` olarak asenkron şekilde ihraç edilmelidir. |
 | **[REQ_SRD_INT_01]** | Otomatik UE5 Varlık İthalatı (Import) | `[REQ_VD_VAL_01]` | Blender tarafından ihraç edilen `.fbx` dosyası, Unreal Engine Remote Control API / Asset Registry üzerinden sessizce UE5 projesinin `Content/ProceduralAssets` dizinine ithal edilmelidir. |
 | **[REQ_SRD_INT_02]** | JSON-RPC 2.0 MCP Transport | `[REQ_VD_TEC_02]` | Unreal ve Blender sunucuları, istemciyle (Antigravity 2) standart stdio transport üzerinden JSON-RPC 2.0 protokolü kurallarına uygun olarak haberleşmelidir. |
+| **[REQ_SRD_UE5_06]** | Dinamik Python Script Çalıştırma Köprüsü | `[REQ_VD_TEC_02]` | Ajan, soket tabanlı Python Remote Execution modülü ile Unreal Editor içinde dinamik script yürütebilmelidir. |
+| **[REQ_SRD_UE5_07]** | Genişletilmiş Sahne Hiyerarşisi Sorgusu | `[REQ_VD_TEC_01]` | Ajan sahnedeki tüm aktörleri ve bileşenleri hiyerarşik olarak sorgulayabilmelidir. |
+| **[REQ_SRD_UE5_08]** | Özel Blueprint ve Varlık Spawning | `[REQ_VD_SCP_01]` | Ajan dinamik yansıma ile özel Blueprint ve prefab sınıflarını spawn edebilmelidir. |
+| **[REQ_SRD_UE5_09]** | Editör İşlemleri Undo/Redo Kontrolü | `[REQ_VD_TEC_01]` | Ajan editör içi undo ve redo transaction geçmişini tetikleyerek işlemleri geri alabilmelidir. |
 
 ---
 

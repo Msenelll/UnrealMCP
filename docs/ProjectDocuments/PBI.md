@@ -2,7 +2,7 @@
 
 **Proje Kodu:** LUDUS_MCP_2026  
 **Doküman Kodu:** PBI_MASTER_01  
-**Versiyon:** v0.1:0  
+**Versiyon:** v0.2:0  
 **Doküman Sahibi:** @qa-nexus (System Integrator & QA Lead)  
 **Sistem Durumu:** İNCELEMEDE / GATED STEP 5  
 
@@ -165,6 +165,118 @@
 * [ ] **AC_01:** İthal edilen otonom Static Mesh objesinin pivot noktası modelin tam alt taban merkezinde konumlanmış olmalıdır.
 * [ ] **AC_02:** Unreal sahnesinde spawn edilen mesh objesi ters dönmüş (flipped) veya eksen kayması yaşamış olmamalıdır. Eksenler UE5 standardında (Z-up, -X Forward) durmalıdır.
 * [ ] **AC_03:** FBX ithalat görevi hata almadan tamamlanmalı ve üretilen yeni varlığın Unreal referans adresi (Asset Path) ajana başarılı dönüş sağlamalıdır.
+
+---
+
+### PBI_006: Asenkron Soket-Tabanlı Python Remote Execution Entegrasyonu (Dinamik Kod)
+
+**Gereksinim Linkleri:**
+* SRD Link: `[REQ_SRD_UE5_06]` (Dinamik Python Script Çalıştırma Köprüsü)
+* TDD Link: `[REQ_TDD_ARC_08]` (Python Remote Execution TCP soket yönetimi)
+
+**Sprint:** Sprint 03 (v2.0)  
+**Owner (Geliştirici):** @core-arch  
+**Status:** Backlog  
+
+---
+
+#### 1. User Story
+* **As a:** Otonom Geliştirici Ajan olarak,
+* **I want to:** Unreal Engine editöründe TCP soketi üzerinden dinamik Python kodları koşturmak istiyorum,
+* **So that:** REST API ile sınırlı kalmadan, Unreal Python API'sinin sunduğu tüm editör araçlarını dinamik olarak tetikleyebilmek için.
+
+#### 2. Technical Implementation Notes
+* Unreal Engine'in `remote_execution.py` modülü `src/unreal_server/` altına dahil edilerek bir wrapper yazılacaktır.
+* `unreal_execute_python` adında bir MCP aracı sunularak, ajandan gelen dinamik Python betikleri soket üzerinden editöre gönderilecektir.
+* Soket bağlantısı asenkron ve kilitlenmeyen (`asyncio`) yapıda kurulacak, 5 saniyelik timeout sınırı uygulanacaktır.
+
+#### 3. Acceptance Criteria (AC)
+* [ ] **AC_01:** `unreal_execute_python` aracıyla basit bir print ifadesi (örn: `print('Hello')`) gönderildiğinde, soket üzerinden Unreal editöründe başarıyla yürütülmeli ve stdout çıktısı ajana dönmelidir.
+* [ ] **AC_02:** Hatalı bir Python kodu gönderildiğinde sunucu çökmemeli, soket üzerinden dönen hata (traceback) ajana detaylı hata logu olarak iletilmelidir.
+* [ ] **AC_03:** Ağır veya uzun süren betiklerde soket bağlantısı MCP sunucusunun ana stdio döngüsünü kesinlikle bloke etmemelidir.
+
+---
+
+### PBI_007: Genişletilmiş Sahne Hiyerarşisi ve Aktör Sorgu Sistemi
+
+**Gereksinim Linkleri:**
+* SRD Link: `[REQ_SRD_UE5_07]` (Genişletilmiş Sahne Hiyerarşisi Sorgusu)
+* TDD Link: `[REQ_TDD_ARC_09]` (Hiyerarşik REST RC API sorguları)
+
+**Sprint:** Sprint 03 (v2.0)  
+**Owner (Geliştirici):** @core-arch  
+**Status:** Backlog  
+
+---
+
+#### 1. User Story
+* **As a:** Bölünmüş ekranda çalışan bir Yapay Zeka Tasarımcısı olarak,
+* **I want to:** Sahnedeki tüm aktörleri ve bu aktörlerin üzerindeki bileşenleri hiyerarşik olarak sorgulamak istiyorum,
+* **So that:** Sahne ağacını tam olarak görebilmek ve aktörlerin detaylı parametrelerini (Collider, Light, Mesh özellikleri vb.) otonom değiştirebilmek için.
+
+#### 2. Technical Implementation Notes
+* `UnrealClient` sınıfına `get_scene_hierarchy` ve `get_actor_components` fonksiyonları eklenecektir.
+* `unreal_get_scene_hierarchy` aracıyla sahnede aktif tüm aktörlerin listesi ve sınıf yolları (`Default__EditorActorSubsystem` çağrısıyla) çekilecektir.
+* `unreal_get_actor_components` aracıyla seçilen aktörün alt bileşenleri sorgulanacaktır.
+
+#### 3. Acceptance Criteria (AC)
+* [ ] **AC_01:** `unreal_get_scene_hierarchy` çağrısı, aktif level içindeki tüm aktör nesnelerini sınıf ve object path bilgileriyle birlikte JSON listesi olarak hatasız getirmelidir.
+* [ ] **AC_02:** `unreal_get_actor_components` çağrısı, belirtilen bir aktörün tüm bileşen sınıflarını (Component Class) listelemelidir.
+* [ ] **AC_03:** Sahne sorguları local ağ gecikmesi kurallarına uyarak **50ms altında** yanıt vermelidir.
+
+---
+
+### PBI_008: Dinamik Blueprint ve Prefab Spawning Sistemi
+
+**Gereksinim Linkleri:**
+* SRD Link: `[REQ_SRD_UE5_08]` (Özel Blueprint ve Varlık Spawning)
+* TDD Link: `[REQ_TDD_ARC_10]` (Blueprint class yollarının dinamik yansıma ile çözümlenmesi)
+
+**Sprint:** Sprint 03 (v2.0)  
+**Owner (Geliştirici):** @core-arch  
+**Status:** Backlog  
+
+---
+
+#### 1. User Story
+* **As a:** Otonom Oyun Tasarımcısı olarak,
+* **I want to:** MVP kapsamındaki 4 temel sınıf dışındaki özel Blueprint ve prefab sınıflarını dinamik yükleyerek sahneye spawn etmek istiyorum,
+* **So that:** Projede geliştirilmiş olan düşman, kapı, sandık veya özel nesneleri sahne üzerinde özgürce yerleştirebilmek için.
+
+#### 2. Technical Implementation Notes
+* `spawn_actor` aracı, parametrik olarak herhangi bir Blueprint sınıf yolunu (`/Game/Blueprints/BP_Actor.BP_Actor_C`) kabul edecek şekilde genişletilecektir.
+* Girilen sınıf yolunun geçerliliği spawn edilmeden önce uzaktan sorgulanacak (Asset Registry kontrolü), geçersiz yollarda işlem reddedilecektir.
+
+#### 3. Acceptance Criteria (AC)
+* [ ] **AC_01:** `/Game/` altındaki özel bir Blueprint sınıfı yol gösterildiğinde, `spawn_actor` belirtilen lokasyonda aktörü başarıyla yaratmalı ve sahne referansını dönmelidir.
+* [ ] **AC_02:** Geçersiz veya bozuk bir sınıf yolu gönderildiğinde, sistem hata vermeli ve hata mesajında "ASSET_NOT_FOUND" uyarısı verilmelidir.
+
+---
+
+### PBI_009: Editör Undo/Redo & Geri Alma Desteği
+
+**Gereksinim Linkleri:**
+* SRD Link: `[REQ_SRD_UE5_09]` (Editör İşlemleri Undo/Redo Kontrolü)
+* TDD Link: `[REQ_TDD_ARC_11]` (Unreal `EditorUndo` transaction entegrasyonu)
+
+**Sprint:** Sprint 03 (v2.0)  
+**Owner (Geliştirici):** @core-arch  
+**Status:** Backlog  
+
+---
+
+#### 1. User Story
+* **As a:** Yapay Zeka Ajanı ile pair programming yapan bir Geliştirici olarak,
+* **I want to:** Ajanın editörde yaptığı hatalı sahne işlemlerini Undo ve Redo araçlarıyla geri alabilmek veya ileri sarabilmek istiyorum,
+* **So that:** Ajanın yaptığı hataları manuel düzeltmekle vakit kaybetmeden tek komutla editör geçmişini yönetebilmek için.
+
+#### 2. Technical Implementation Notes
+* `UnrealClient` sınıfına `unreal.EditorUndo` API'sini tetikleyen HTTP/REST Remote Control endpoints eklenecektir.
+* `unreal_editor_undo` ve `unreal_editor_redo` araçları MCP sunucusuna eklenecektir.
+
+#### 3. Acceptance Criteria (AC)
+* [ ] **AC_01:** `unreal_editor_undo` çağrıldığında, ajanın sahne üzerinde yaptığı son spawn veya transformasyon değişikliği editör geçmişinden başarıyla geri alınmalı (Undo) ve viewport anında güncellenmelidir.
+* [ ] **AC_02:** Undo yapılan bir işlem `unreal_editor_redo` ile başarıyla ileri sarılmalıdır (Redo).
 
 ---
 
