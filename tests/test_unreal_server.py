@@ -296,3 +296,67 @@ async def test_unreal_remote_executor_mocked_success():
         
     await executor.stop_session()
 
+@pytest.mark.asyncio
+async def test_unreal_client_get_scene_hierarchy():
+    """
+    Verifies that get_scene_hierarchy correctly queries and parses the level actors.
+    """
+    client = UnrealClient()
+    
+    async def mock_send_request(method, path, payload=None):
+        return {
+            "success": True,
+            "data": {
+                "returnValue": [
+                    "/Game/Maps/PersistentLevel.StaticMeshActor_1",
+                    "/Game/Maps/PersistentLevel.PointLight_1"
+                ]
+            }
+        }
+        
+    client._send_request = mock_send_request
+    
+    res = await client.get_scene_hierarchy()
+    
+    assert res["success"] is True
+    assert len(res["actors"]) == 2
+    assert res["actors"][0]["name"] == "StaticMeshActor_1"
+    assert res["actors"][1]["name"] == "PointLight_1"
+    
+    await client.close()
+
+@pytest.mark.asyncio
+async def test_unreal_client_get_actor_components():
+    """
+    Verifies that get_actor_components successfully queries and filters actor components from describe metadata.
+    """
+    client = UnrealClient()
+    
+    async def mock_send_request(method, path, payload=None):
+        return {
+            "success": True,
+            "data": {
+                "name": "MyPointLight",
+                "className": "PointLight",
+                "properties": [
+                    {"name": "LightComponent", "type": "PointLightComponent"},
+                    {"name": "RootComponent", "type": "SceneComponent"},
+                    {"name": "Intensity", "type": "float"}
+                ]
+            }
+        }
+        
+    client._send_request = mock_send_request
+    
+    res = await client.get_actor_components("/Game/Maps/PersistentLevel.PointLight_1")
+    
+    assert res["success"] is True
+    assert res["metadata"]["name"] == "MyPointLight"
+    assert res["metadata"]["class"] == "PointLight"
+    assert len(res["components"]) == 2
+    assert res["components"][0]["name"] == "LightComponent"
+    assert res["components"][1]["name"] == "RootComponent"
+    
+    await client.close()
+
+

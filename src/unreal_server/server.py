@@ -165,6 +165,25 @@ async def handle_list_tools() -> list[types.Tool]:
                 },
                 "required": ["command"]
             }
+        ),
+        types.Tool(
+            name="unreal_get_scene_hierarchy",
+            description="Fetches all active actors in the active level to display the scene hierarchy [REQ_SRD_UE5_07].",
+            inputSchema={"type": "object", "properties": {}}
+        ),
+        types.Tool(
+            name="unreal_get_actor_components",
+            description="Queries all components and metadata of a target actor [REQ_SRD_UE5_07].",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "actor_path": {
+                        "type": "string",
+                        "description": "Full object path of the target actor (e.g. PersistentLevel.StaticMeshActor_1)"
+                    }
+                },
+                "required": ["actor_path"]
+            }
         )
     ]
 
@@ -252,6 +271,18 @@ async def handle_call_tool(name: str, arguments: dict | None) -> list[types.Text
                 return [types.TextContent(type="text", text="Error: Missing command argument.")]
                 
             res = await remote_executor.execute_command(command, exec_mode)
+            return [types.TextContent(type="text", text=str(res))]
+            
+        elif name == "unreal_get_scene_hierarchy":
+            res = await unreal_client.get_scene_hierarchy()
+            return [types.TextContent(type="text", text=str(res))]
+            
+        elif name == "unreal_get_actor_components":
+            actor_path = args.get("actor_path")
+            if not actor_path:
+                return [types.TextContent(type="text", text="Error: Missing actor_path argument.")]
+                
+            res = await unreal_client.get_actor_components(actor_path)
             return [types.TextContent(type="text", text=str(res))]
             
         else:
