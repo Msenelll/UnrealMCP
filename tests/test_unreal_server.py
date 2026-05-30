@@ -359,4 +359,77 @@ async def test_unreal_client_get_actor_components():
     
     await client.close()
 
+# ==========================================
+# 5. Blueprint Spawning Unit Tests
+# ==========================================
+
+@pytest.mark.asyncio
+async def test_spawn_actor_invalid_class_path():
+    """
+    Verifies strict validation of invalid actor class paths.
+    """
+    client = UnrealClient()
+    
+    res = await client.spawn_actor("BP_MyActor", {"x": 0.0, "y": 0.0, "z": 0.0})
+    assert res["success"] is False
+    assert res["error"] == "INVALID_CLASS_PATH"
+    assert "Paths must start with" in res["message"]
+    
+    await client.close()
+
+@pytest.mark.asyncio
+async def test_spawn_actor_blueprint_auto_format():
+    """
+    Verifies auto-formatting expansion of custom Blueprint paths to _C suffix.
+    """
+    client = UnrealClient()
+    
+    # Mock successful response
+    mock_response = AsyncMock()
+    mock_response.status = 200
+    mock_response.content_type = "application/json"
+    mock_response.json = AsyncMock(return_value={"returnValue": "/Game/Maps.BP_MyActor_C_1"})
+    
+    mock_session = MagicMock()
+    mock_session.closed = False
+    mock_session.close = AsyncMock()
+    mock_session.request.return_value.__aenter__.return_value = mock_response
+    client.session = mock_session
+    
+    # Pass short path (lacks .BP_MyActor_C)
+    res = await client.spawn_actor("/Game/Blueprints/BP_MyActor", {"x": 100.0, "y": 100.0, "z": 0.0})
+    
+    assert res["success"] is True
+    assert "BP_MyActor.BP_MyActor_C" in res["message"]
+    
+    # Verify exact called string
+    called_args = mock_session.request.call_args[1]
+    assert called_args["json"]["parameters"]["ActorClass"] == "/Game/Blueprints/BP_MyActor.BP_MyActor_C"
+    
+    await client.close()
+
+@pytest.mark.asyncio
+async def test_spawn_actor_asset_not_found_500():
+    """
+    Verifies that HTTP_500 from the Remote Control Web Server translates to ASSET_NOT_FOUND.
+    """
+    client = UnrealClient()
+    
+    async def mock_send_request(method, path, payload=None):
+        return {
+            "success": False,
+            "error": "HTTP_500",
+            "message": "Internal Server Error"
+        }
+    client._send_request = mock_send_request
+    
+    res = await client.spawn_actor("/Game/Blueprints/BP_Invalid", {"x": 0.0, "y": 0.0, "z": 0.0})
+    
+    assert res["success"] is False
+    assert res["error"] == "ASSET_NOT_FOUND"
+    assert "verify that the Blueprint asset path exists" in res["message"]
+    
+    await client.close()
+
+
 
