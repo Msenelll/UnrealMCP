@@ -13,6 +13,7 @@ from mcp.server.stdio import stdio_server
 import mcp.types as types
 from src.unreal_server.client import UnrealClient
 from src.unreal_server.execution import SubprocessManager
+from src.unreal_server.remote_execution_client import UnrealRemoteExecutor
 
 # Configure strict enterprise logging
 logging.basicConfig(
@@ -28,6 +29,8 @@ server = Server("unreal-mcp-server")
 # Instantiate async modules
 unreal_client = UnrealClient()
 proc_manager = SubprocessManager()
+remote_executor = UnrealRemoteExecutor()
+
 
 @server.list_tools()
 async def handle_list_tools() -> list[types.Tool]:
@@ -142,6 +145,26 @@ async def handle_list_tools() -> list[types.Tool]:
                 },
                 "required": ["filepath"]
             }
+        ),
+        types.Tool(
+            name="unreal_execute_python",
+            description="Executes an arbitrary Python script or statement inside the Unreal Editor using the Python Remote Execution socket interface [REQ_SRD_UE5_06].",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "command": {
+                        "type": "string",
+                        "description": "The Python script or command string to execute."
+                    },
+                    "exec_mode": {
+                        "type": "string",
+                        "enum": ["ExecuteFile", "ExecuteStatement", "EvaluateStatement"],
+                        "default": "ExecuteFile",
+                        "description": "Execution mode. Use 'ExecuteFile' for multi-line scripts or files, 'ExecuteStatement' to run a single statement, or 'EvaluateStatement' to evaluate an expression and return its value."
+                    }
+                },
+                "required": ["command"]
+            }
         )
     ]
 
@@ -222,6 +245,15 @@ async def handle_call_tool(name: str, arguments: dict | None) -> list[types.Text
             res = await unreal_client.import_asset(filepath, destination_path)
             return [types.TextContent(type="text", text=str(res))]
             
+        elif name == "unreal_execute_python":
+            command = args.get("command")
+            exec_mode = args.get("exec_mode", "ExecuteFile")
+            if not command:
+                return [types.TextContent(type="text", text="Error: Missing command argument.")]
+                
+            res = await remote_executor.execute_command(command, exec_mode)
+            return [types.TextContent(type="text", text=str(res))]
+            
         else:
             return [types.TextContent(type="text", text=f"Error: Unknown tool '{name}'")]
             
@@ -245,6 +277,7 @@ async def main():
         logger.critical(f"Server crash encountered: {e}")
     finally:
         await unreal_client.close()
+        await remote_executor.stop_session()
 
 if __name__ == "__main__":
     asyncio.run(main())

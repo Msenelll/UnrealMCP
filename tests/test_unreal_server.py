@@ -11,6 +11,7 @@ from unittest.mock import patch, MagicMock, AsyncMock
 from src.common.transforms import CoordinateConverter
 from src.unreal_server.client import UnrealClient
 from src.unreal_server.execution import SubprocessManager
+from src.unreal_server.remote_execution_client import UnrealRemoteExecutor
 
 # ==========================================
 # 1. CoordinateConverter Unit Tests
@@ -245,3 +246,53 @@ async def test_subprocess_manager_simulated_run_uat():
     assert exit_code == 0
     assert len(logs) > 0
     assert any("RunUAT" in log for log in logs)
+
+# ==========================================
+# 4. UnrealRemoteExecutor Unit Tests
+# ==========================================
+
+@pytest.mark.asyncio
+async def test_unreal_remote_executor_offline():
+    """
+    Verifies that the executor handles offline scenarios gracefully.
+    """
+    executor = UnrealRemoteExecutor()
+    
+    # Mock RemoteExecution to simulate no discovered nodes (empty list)
+    with patch("src.unreal_server.remote_execution_client.RemoteExecution") as MockRemoteExec:
+        mock_instance = MockRemoteExec.return_value
+        mock_instance.remote_nodes = []
+        mock_instance.has_command_connection.return_value = False
+        
+        res = await executor.execute_command("print('test')")
+        
+        assert res["success"] is False
+        assert res["error"] == "EDITOR_OFFLINE"
+        
+    await executor.stop_session()
+
+@pytest.mark.asyncio
+async def test_unreal_remote_executor_mocked_success():
+    """
+    Verifies successful execution and reconnect handling in remote executor.
+    """
+    executor = UnrealRemoteExecutor()
+    
+    # Mock RemoteExecution node discovery and command connection run_command
+    with patch("src.unreal_server.remote_execution_client.RemoteExecution") as MockRemoteExec:
+        mock_instance = MockRemoteExec.return_value
+        mock_instance.remote_nodes = [{"node_id": "test_node_id"}]
+        mock_instance.has_command_connection.return_value = False
+        mock_instance.run_command.return_value = {"success": True, "result": "mocked_stdout_result"}
+        
+        res = await executor.execute_command("print('success_test')")
+        
+        assert res["success"] is True
+        assert res["result"] == "mocked_stdout_result"
+        
+        mock_instance.start.assert_called_once()
+        mock_instance.open_command_connection.assert_called_once_with("test_node_id")
+        mock_instance.run_command.assert_called_once_with("print('success_test')", unattended=True, exec_mode="ExecuteFile")
+        
+    await executor.stop_session()
+
